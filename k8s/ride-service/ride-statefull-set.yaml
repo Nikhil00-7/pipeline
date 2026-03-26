@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rider-mongo-db
+  namespace: uber
+spec:
+  serviceName: "ride-mongo-db-service"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rider-mongo-db
+  template:
+    metadata:
+      labels:
+        app: rider-mongo-db
+    spec:
+      
+      tolerations:
+      - key: "uberonly"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: disktype
+                operator: In
+                values:
+                - ssd
+      
+      containers:
+      - name: rider-mongo-container
+        image: mongo:6.0
+        ports:
+        - containerPort: 27017
+        volumeMounts:
+        - name: rider-storage-db
+          mountPath: /data/db
+  
+  volumeClaimTemplates:
+  - metadata:
+      name: rider-storage-db
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi

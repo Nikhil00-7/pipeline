@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: user-mongo-db
+  namespace: uber
+
+spec:
+  serviceName: user-mongo-db-service
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: user-mongo-db
+
+  template:
+    metadata:
+      labels:
+        app: user-mongo-db
+
+    spec:
+      tolerations:
+        - key: "uberonly"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: disktype
+                    operator: In
+                    values:
+                      - ssd
+
+      containers:
+        - name: user-mongo-container
+          image: mongo:6.0
+          ports:
+            - containerPort: 27017
+
+          volumeMounts:
+            - name: user-storage-db
+              mountPath: /data/db
+
+  volumeClaimTemplates:
+    - metadata:
+        name: user-storage-db
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi

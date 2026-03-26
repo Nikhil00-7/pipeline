@@ -1,0 +1,135 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:management-alpine
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  captain-service:
+    build:
+      context: ./captain
+      dockerfile: Dockerfile
+    container_name: captain-service
+    ports:
+      - "3002:3002"
+    environment:
+      MONGO_URL: mongodb://mongodb:27017/captainDB
+      RABBIT_URL: amqp://guest:guest@rabbitmq:5672
+      JWT_SECRET: ef9b1764584df90ec2d5ed845fb261268d3675306b685e763cd32717e96665d2
+      BASE_URL: http://gateway-service:3000
+      NODE_ENV: development
+    networks:
+      microservices-network:
+        aliases:
+          - captain-service
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: ./user
+      dockerfile: Dockerfile
+    container_name: user-service
+    ports:
+      - "3001:3001"
+    environment:
+      MONGO_URL: mongodb://mongodb:27017/userDB
+      RABBIT_URL: amqp://guest:guest@rabbitmq:5672
+      JWT_SECRET: ef9b1764584df90ec2d5ed845fb261268d3675306b685e763cd32717e96665d2
+      NODE_ENV: development
+    networks:
+      microservices-network:
+        aliases:
+          - user-service
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+  ride-service:
+    build:
+      context: ./ride
+      dockerfile: Dockerfile
+    container_name: ride-service
+    ports:
+      - "3003:3003"
+    environment:
+      MONGO_URL: mongodb://mongodb:27017/rideDB
+      RABBIT_URL: amqp://guest:guest@rabbitmq:5672
+      JWT_SECRET: ef9b1764584df90ec2d5ed845fb261268d3675306b685e763cd32717e96665d2
+      NODE_ENV: development
+    networks:
+      microservices-network:
+        aliases:
+          - ride-service
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+  gateway-service:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: gateway-service
+    ports:
+      - "3000:3000"
+    environment:
+      USER_SERVICE_URL: http://user-service:3001
+      CAPTAIN_SERVICE_URL: http://captain-service:3002
+      RIDE_SERVICE_URL: http://ride-service:3003
+      NODE_ENV: development
+    networks:
+      - microservices-network
+    depends_on:
+      - captain-service
+      - user-service
+      - ride-service
+    restart: unless-stopped
+
+networks:
+  microservices-network:
+    driver: bridge
+    name: microservices-network
+
+volumes:
+  mongodb_data:

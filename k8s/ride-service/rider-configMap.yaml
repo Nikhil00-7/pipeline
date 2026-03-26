@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ride-config
+  namespace: uber
+data:
+  MONGO_URL: mongodb://10.244.1.23:27017/captainDB
+  RABBIT_URL: amqp://guest:guest@10.106.137.175:5672
+  BASE_URL: http://gate-way-service:3000
+  MONGO_HOST: 10.244.1.23
+  MONGO_PORT: "27017"
+  RABBITMQ_HOST: 10.106.137.175
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_USER: guest
+  RABBITMQ_PASS: guest

@@ -1,0 +1,58 @@
+/Users/eazyfixit/Documents/uber/micro-services/Terrafrom/
+/Users/eazyfixit/Documents/uber/micro-services/captain/node_modules/
+/Users/eazyfixit/Documents/uber/micro-services/gateway/node_modules/
+/Users/eazyfixit/Documents/uber/micro-services/ride/node_modules/
+/Users/eazyfixit/Documents/uber/micro-services/user/node_modules/
+
+# Node modules for all services
+**/node_modules/
+
+# Terraform files
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# IDE/editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# NPM package lock (optional if you want to commit it)
+# package-lock.json
+# yarn.lock
+
+# Any temporary or cache files
+*.tmp
+*.swp
+
+
+*.tfvars
+*.tfvars.json
+
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+.DS_Store
+
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+captain/.env
+user/.env
+ride/.env
+
+k8s/captain-service/captain-secret.yaml
+k8s/captain-service/captain-configMap.yaml
+
+k8s/rider-service/rider-configMap.yaml
+k8s/rider-service/rider-secret.yaml
+k8s/user-service/user-configMap.yaml
+k8s/user-service/user-secret.yaml 
