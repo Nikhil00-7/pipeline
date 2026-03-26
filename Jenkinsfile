@@ -1,29 +1,25 @@
 pipeline {
-
-    agent any 
+    agent any
 
     tools {
-        nodejs "node22"
+        nodejs 'node22'
     }
-    
-    def services = ['user', 'ride', 'captain', 'gateway']
-    
+
     environment {
         PATH = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-        MAX_RETRIES= "3"
-        DELAY_RETRIES= "30"
+        MAX_RETRIES = "3"
+        DELAY_RETRIES = "30"
+        SERVICES = "user,ride,captain,gateway"
     }
+
     options {
-      timestamp()
-      timeout(time: 1 , units: "HOURS")
+        timestamps()
+        timeout(time: 1, unit: "HOURS")
     }
 
-    parameters{
-       booleanParam (name: "SKIPS_TEST" , defaultValue: true , description: "Skip test stage")
-       
-       booleanParam( name: "SKIPS_BUILD" , defaultValue: true , description: "Skip build stage")
- 
-
+    parameters {
+        booleanParam(name: "SKIP_TEST", defaultValue: true, description: "Skip test stage")
+        booleanParam(name: "SKIP_BUILD", defaultValue: true, description: "Skip build stage")
     }
 
     stages {
@@ -35,135 +31,122 @@ pipeline {
         }
 
         stage("Install Dependencies") {
-           steps{
-            def max_retries = env.MAX_RETRIES.toInteger()
-            def delay = env.DELAY_RETRIES.toInteger()
+            steps {
+                script {
+                    def services = env.SERVICES.split(",")
+                    def maxRetries = env.MAX_RETRIES.toInteger()
+                    def delay = env.DELAY_RETRIES.toInteger()
 
-            script{
-               for(service in services){
-                for (int attempts = 1; attempts<= max_retries; attempts++){
-                   try{
-                      dir(service){
-                        sh "npm install"
-                      }
-                       echo "${service}  dependency  install successful"
-                     break
-                   }catch(Exception e){
-                     echo "Attempts ${attempts}/${max_retries} failed for ${service}  service"
-
-                     if(i == max_retries){
-                      error("Failed to install dependency for service ${service}")
-                     }
-                         echo "Waiting ${delay} seconds before retry..."
-                         sleep(time: delay , uits: "SECONDS")
-                   }
+                    for (service in services) {
+                        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+                            try {
+                                dir(service) {
+                                    sh "npm install"
+                                }
+                                echo "${service} dependency install successful"
+                                break
+                            } catch (Exception e) {
+                                echo "Attempt ${attempt}/${maxRetries} failed for ${service}"
+                                if (attempt == maxRetries) {
+                                    error("Failed to install dependencies for ${service}")
+                                }
+                                echo "Retrying in ${delay} seconds..."
+                                sleep(time: delay, unit: "SECONDS")
+                            }
+                        }
+                    }
                 }
-               }
-             }
-           }
+            }
         }
 
         stage("Build Services") {
-          when {
-            expression {params.SKIPS_BUILD == false}
-          }
-            steps{
-              def max_retries = env.MAX_RETRIES.toInteger()
-              def delay = env.DELAY_RETRIES.toInteger()
-              script{
-               for (service in services){
-                for (int attempts= 1 ; attempts<= max_retries ; attempts++){
-                    try{
-                        dir(service){
-                          sh "npm run build || echo 'No build script'"
-                        }
-                         echo "${service} build complete successful"
-                         break
-                    }catch(Exception e){
-                       echo "Attempts ${attempts}/${max_retries} failed for ${service}  service"
+            when {
+                expression { params.SKIP_BUILD == false }
+            }
+            steps {
+                script {
+                    def services = env.SERVICES.split(",")
+                    def maxRetries = env.MAX_RETRIES.toInteger()
+                    def delay = env.DELAY_RETRIES.toInteger()
 
-                     if(i == max_retries){
-                      error("Failed to build for service ${service}")
-                     }
-                         echo "Waiting ${delay} seconds before retry..."
-                         sleep(time: delay , uits: "SECONDS")
+                    for (service in services) {
+                        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+                            try {
+                                dir(service) {
+                                    sh "npm run build"
+                                }
+                                echo "${service} build successful"
+                                break
+                            } catch (Exception e) {
+                                echo "Attempt ${attempt}/${maxRetries} failed for ${service}"
+                                if (attempt == maxRetries) {
+                                    error("Build failed for ${service}")
+                                }
+                                sleep(time: delay, unit: "SECONDS")
+                            }
+                        }
                     }
-                  }
-                }   
-              }
+                }
             }
         }
 
         stage("Run Tests") {
-           when{
-            expression {params.SKIPS_TEST== false}
-           }
-
-           steps{
-              def max_retries = env.MAX_RETRIES.toInteger()
-              def delay = env.DELAY_RETRIES.toInteger()
-
-             script{
-              for (service in services){
-                for (int attempts = 1; attempts<= max_retries ; attempts++){
-                  try{
-                     dir(service){
-                       sh "npm test"
-                     }
-                     echo "${service} test pass successful"
-                     break
-                  }catch(Exception e){
-                      echo "Attempts ${attempts}/${max_retries} failed for ${service}  service"
-
-                     if(i == max_retries){
-                      error("Failed to test for service ${service}")
-                     }
-                         echo "Waiting ${delay} seconds before retry..."
-                         sleep(time: delay , uits: "SECONDS")
-                  }
-                }
-              }
-             }
-           }
-        }
-
-        stage("Create Artifact") {
+            when {
+                expression { params.SKIP_TEST == false }
+            }
             steps {
-              def max_retries = env.MAX_RETRIES.toInteger()
-              def delay = env.DELAY_RETRIES.toInteger()
                 script {
-                    for(service in services){
-                      for (int attempts =1  ; attempts<= max_retries ; attempts++){
-                        try{
-                           dir(service){
-                            sh "zip -r ${service}.zip ."
-                           }
-                        }catch(Exception e){
-                         echo "Attempts ${attempts}/${max_retries} failed for ${service}  service"
+                    def services = env.SERVICES.split(",")
+                    def maxRetries = env.MAX_RETRIES.toInteger()
+                    def delay = env.DELAY_RETRIES.toInteger()
 
-                     if(i == max_retries){
-                      error("Failed to create artifact for ${service}")
-                     }
-                         echo "Waiting ${delay} seconds before retry..."
-                         sleep(time: delay , uits: "SECONDS")
+                    for (service in services) {
+                        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+                            try {
+                                dir(service) {
+                                    sh "npm test"
+                                }
+                                echo "${service} tests passed"
+                                break
+                            } catch (Exception e) {
+                                echo "Attempt ${attempt}/${maxRetries} failed for ${service}"
+                                if (attempt == maxRetries) {
+                                    error("Tests failed for ${service}")
+                                }
+                                sleep(time: delay, unit: "SECONDS")
+                            }
                         }
-                      }
                     }
                 }
             }
         }
 
-        stage("Archive Artifact") {
+        stage("Create Artifacts") {
+            steps {
+                script {
+                    def services = env.SERVICES.split(",")
+
+                    for (service in services) {
+                        dir(service) {
+                            sh "zip -r ${service}.zip ."
+                        }
+                        echo "${service} artifact created"
+                    }
+                }
+            }
+        }
+
+        stage("Archive Artifacts") {
             steps {
                 archiveArtifacts artifacts: '**/*.zip', fingerprint: true
             }
         }
 
-
-        stage("Build Docker Image") {
+        stage("Build Docker Images") {
             steps {
                 script {
-                    def services = ['user', 'ride', 'captain', 'gateway']
+                    def services = env.SERVICES.split(",")
+
                     for (service in services) {
                         dir(service) {
                             sh "docker build -t docdon0007/${service}:${env.BUILD_NUMBER} ."
@@ -172,37 +155,6 @@ pipeline {
                 }
             }
         }
-
-
-        // stage("Push to ECR") {
-        //     steps {
-        //         withCredentials([[
-        //             $class: 'AmazonWebServicesCredentialsBinding',
-        //             credentialsId: 'aws-creds',
-        //             accessKeyVariable: 'aws-access-key',
-        //             secretKeyVariable: 'aws-secret-key'
-        //         ]]) {
-                       
-                    
-        //             script {
-        //                 def services = ['user', 'ride', 'captain', 'gateway']
-        //                 def region = "us-east-1"
-        //                 def accountId = "YOUR_AWS_ACCOUNT_ID"
-
-        //                 sh """
-        //                 aws ecr get-login-password --region ${region} | docker login --username AWS --password-stdin ${accountId}.dkr.ecr.${region}.amazonaws.com
-        //                 """
-
-        //                 for (service in services) {
-        //                     sh """
-        //                     docker tag docdon0007/${service}:${BUILD_NUMBER} ${accountId}.dkr.ecr.${region}.amazonaws.com/${service}:${BUILD_NUMBER}
-        //                     docker push ${accountId}.dkr.ecr.${region}.amazonaws.com/${service}:${BUILD_NUMBER}
-        //                     """
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
 
         stage("Terraform Init") {
             steps {
@@ -219,29 +171,6 @@ pipeline {
                 }
             }
         }
-
-        // stage("Terraform Apply") {
-        //     steps {
-        //         dir("Terraform") {
-        //             sh "terraform apply --auto-approve"
-        //         }
-        //     }
-        // }
-
-        // stage("Deploy to EKS") {
-        //     steps {
-        //         withCredentials([[
-        //             $class: 'AmazonWebServicesCredentialsBinding',
-        //             credentialsId: 'aws-creds'
-        //         ]]) {
-
-        //             sh '''
-        //             aws eks --region us-east-1 update-kubeconfig --name my-cluster
-        //             kubectl apply -f k8s/
-        //             '''
-        //         }
-        //     }
-        // }
     }
 
     post {
@@ -251,7 +180,7 @@ pipeline {
 
         success {
             echo "Deployment successful"
-            sh "kubectl get pods"
+            sh "kubectl get pods || true"
         }
 
         failure {
