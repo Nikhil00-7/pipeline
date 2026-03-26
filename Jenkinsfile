@@ -96,7 +96,7 @@ pipeline {
 
         stage("Run Tests") {
            when{
-            expression {params.SKIPS_TEST== false)
+            expression {params.SKIPS_TEST== false}
            }
 
            steps{
@@ -259,5 +259,4 @@ pipeline {
             sh "kubectl get pods || true"
         }
     }
-}
 }
