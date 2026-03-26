@@ -17,11 +17,6 @@ pipeline {
         timeout(time: 1, unit: "HOURS")
     }
 
-    parameters {
-        booleanParam(name: "SKIP_TEST", defaultValue: true, description: "Skip test stage")
-        booleanParam(name: "SKIP_BUILD", defaultValue: true, description: "Skip build stage")
-    }
-
     stages {
 
         stage("Checkout Code") {
@@ -50,7 +45,6 @@ pipeline {
                                 if (attempt == maxRetries) {
                                     error("Failed to install dependencies for ${service}")
                                 }
-                                echo "Retrying in ${delay} seconds..."
                                 sleep(time: delay, unit: "SECONDS")
                             }
                         }
@@ -58,88 +52,84 @@ pipeline {
                 }
             }
         }
-   
-  stage("Build Services") {
-            steps{
-            def max_retries = env.MAX_RETRIES.toInteger()
-            def delay = env.DELAY_RETRIES.toInteger()
-            def services = env.SERVICES.split(',')
 
-            def userChoice = input(message: "Do you want to run build ?" ,
-                parameters [
-                  booleanParam(name: "SKIPS_BUILD" , defaultValue:true , description: "RUN build ?")
-                ]
-            )
-            script{
-                for(service in serivces){
-                     for(int attempts = 1; attempts<= max_retries ; attempts++){
-                       try{
-                           dir(service){
-                            if(!userChoice){
-                              echo "skip test stage"
-                            }else{
-                                sh "npm run build"
+        stage("Build Services") {
+            steps {
+                script {
+                    def services = env.SERVICES.split(",")
+                    def maxRetries = env.MAX_RETRIES.toInteger()
+                    def delay = env.DELAY_RETRIES.toInteger()
+
+                    def userChoice = input(
+                        message: "Do you want to run BUILD?",
+                        parameters: [
+                            booleanParam(name: "RUN_BUILD", defaultValue: true, description: "Run build?")
+                        ]
+                    )
+
+                    for (service in services) {
+                        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+                            try {
+                                dir(service) {
+                                    if (userChoice) {
+                                        sh "npm run build"
+                                    } else {
+                                        echo "Skipping build for ${service}"
+                                    }
+                                }
+                                echo "Build process of ${service} complete"
+                                break
+                            } catch (Exception e) {
+                                echo "Attempt ${attempt}/${maxRetries} failed for ${service}"
+                                if (attempt == maxRetries) {
+                                    error("Build failed for ${service}")
+                                }
+                                sleep(time: delay, unit: "SECONDS")
                             }
-                           }
-                           echo "Build process of ${service} is complete"
-                           break
-
-                       }catch(Exception e){
-                            echo "Attempts ${attempts}/${max_retries} failed for service"
-                          if(i == max_retries){
-                            error("failed to install dependency for ${service} service")
-                          }
-                          echo "wait for ${delay} seconds for the next retry..."
-                          sleep(time: delay , utils:"SECONDS")
-                       }
-                     }
+                        }
+                    }
                 }
-             }
             }
         }
 
         stage("Run Tests") {
-           steps{
-            def max_retries = env.MAX_RETRIES.toInteger()
-            def delay = env.DELAY_RETRIES.toInteger()
-            def services = env.SERVICES.split(',')
+            steps {
+                script {
+                    def services = env.SERVICES.split(",")
+                    def maxRetries = env.MAX_RETRIES.toInteger()
+                    def delay = env.DELAY_RETRIES.toInteger()
 
-            def userChoice = input(message: "Do you want to run TEST ?" ,
-                parameters [
-                  booleanParam(name: "SKIPS_TEST" , defaultValue:true , description: "RUN test ?")
-                ]
-            )
-            script{
-                for(service in serivces){
-                     for(int attempts = 1; attempts<= max_retries ; attempts++){
-                       try{
-                           dir(service){
-                            if(!userChoice){
-                              echo "skip test stage"
-                            }else{
-                                sh "npm test"
+                    def userChoice = input(
+                        message: "Do you want to run TESTS?",
+                        parameters: [
+                            booleanParam(name: "RUN_TEST", defaultValue: true, description: "Run tests?")
+                        ]
+                    )
+
+                    for (service in services) {
+                        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+                            try {
+                                dir(service) {
+                                    if (userChoice) {
+                                        sh "npm test"
+                                    } else {
+                                        echo "Skipping tests for ${service}"
+                                    }
+                                }
+                                echo "Test process of ${service} complete"
+                                break
+                            } catch (Exception e) {
+                                echo "Attempt ${attempt}/${maxRetries} failed for ${service}"
+                                if (attempt == maxRetries) {
+                                    error("Tests failed for ${service}")
+                                }
+                                sleep(time: delay, unit: "SECONDS")
                             }
-                           }
-                           echo "Test process of ${service} is complete"
-                           break
-
-                       }catch(Exception e){
-                            echo "Attempts ${attempts}/${max_retries} failed for service"
-                          if(i == max_retries){
-                            error("failed to install dependency for ${service} service")
-                          }
-                          echo "wait for ${delay} seconds for the next retry..."
-                          sleep(time: delay , utils:"SECONDS")
-                       }
-                     }
+                        }
+                    }
                 }
-             }
             }
         }
-
-       
-
-        
 
         stage("Create Artifacts") {
             steps {
