@@ -157,3 +157,85 @@ All infrastructure is provisioned using Terraform with modular design, enabling 
 
 
 
+
+
+
+
+
+  stage("Build Services") {
+            steps{
+            def max_retries = env.MAX_RETRIES.toInteger()
+            def delay = env.DELAY_RETRIES.toInteger()
+            def services = env.SERVICES.split(',')
+
+            def userChoice = input(message: "Do you want to run build ?" ,
+                parameters [
+                  booleanParam(name: "SKIPS_BUILD" , defaultValue:true , description: "RUN build ?")
+                ]
+            )
+            script{
+                for(service in serivces){
+                     for(int attempts = 1; attempts<= max_retries ; attempts++){
+                       try{
+                           dir(service){
+                            if(!userChoice){
+                              echo "skip test stage"
+                            }else{
+                                sh "npm run build"
+                            }
+                           }
+                           echo "Build process of ${service} is complete"
+                           break
+
+                       }catch(Exception e){
+                            echo "Attempts ${attempts}/${max_retries} failed for service"
+                          if(i == max_retries){
+                            error("failed to install dependency for ${service} service")
+                          }
+                          echo "wait for ${delay} seconds for the next retry..."
+                          sleep(time: delay , utils:"SECONDS")
+                       }
+                     }
+                }
+             }
+            }
+        }
+
+        stage("Run Tests") {
+           steps{
+            def max_retries = env.MAX_RETRIES.toInteger()
+            def delay = env.DELAY_RETRIES.toInteger()
+            def services = env.SERVICES.split(',')
+
+            def userChoice = input(message: "Do you want to run TEST ?" ,
+                parameters [
+                  booleanParam(name: "SKIPS_TEST" , defaultValue:true , description: "RUN test ?")
+                ]
+            )
+            script{
+                for(service in serivces){
+                     for(int attempts = 1; attempts<= max_retries ; attempts++){
+                       try{
+                           dir(service){
+                            if(!userChoice){
+                              echo "skip test stage"
+                            }else{
+                                sh "npm test"
+                            }
+                           }
+                           echo "Test process of ${service} is complete"
+                           break
+
+                       }catch(Exception e){
+                            echo "Attempts ${attempts}/${max_retries} failed for service"
+                          if(i == max_retries){
+                            error("failed to install dependency for ${service} service")
+                          }
+                          echo "wait for ${delay} seconds for the next retry..."
+                          sleep(time: delay , utils:"SECONDS")
+                       }
+                     }
+                }
+             }
+            }
+        }
